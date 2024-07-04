@@ -1,3 +1,5 @@
+// services/APIService.tsx
+
 class APIService {
   private static instance: APIService;
   private baseUrl: string;
@@ -19,7 +21,8 @@ class APIService {
     endpoint: string,
     method: string,
     body?: any,
-    auth: boolean = false
+    auth: boolean = false,
+    multipart: boolean = false
   ): Promise<any> {
     const headers: HeadersInit = {
       "Content-Type": "application/json",
@@ -27,16 +30,23 @@ class APIService {
     };
 
     if (auth) {
-      // get access token somehow
+      let token = localStorage.getItem("token");
       if (token) {
         headers["Authorization"] = `Bearer ${token}`;
       }
     }
 
+    let requestBody: string | FormData | undefined = body;
+    if (multipart && body instanceof FormData) {
+      requestBody = body;
+    } else if (body) {
+      requestBody = JSON.stringify(body);
+    }
+
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
       method,
       headers,
-      body: body ? JSON.stringify(body) : null,
+      body: requestBody,
     });
 
     if (!response.ok) {

@@ -5,10 +5,14 @@ from flask_jwt_extended import JWTManager, create_access_token, jwt_required, ge
 from flask_cors import CORS
 
 import os
+import random
+from cryptography.fernet import Fernet
 
 db = SQLAlchemy()
 bcrypt = Bcrypt()
 jwt = JWTManager()
+key = Fernet.generate_key()
+fernet = Fernet(key)
 
 
 def create_app():
@@ -21,7 +25,7 @@ def create_app():
     CORS(
         app,
         resources={r"*": {"origins": ["*"]}},
-        allow_headers=["Authorization", "Content-Type"],
+        allow_headers=["Authorization", "Content-Type", "app-version"],
         methods=["GET", "POST", "OPTIONS"],
         max_age=86400
     )
@@ -61,16 +65,33 @@ def create_app():
     @jwt_required()
     def user():
         current_user = get_jwt_identity()
-        # return user information
+        user = User.query.filter_by(username=current_user['username']).first()
 
+        if user.motto:
+            decoded_motto = fernet.decrypt(user.motto).decode()
+        else:
+            decoded_motto = user.motto
+
+        return {'username' : user.username, 'decoded_motto': decoded_motto}
     return app
 
-
-class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(150), unique=True, nullable=False)
-    password = db.Column(db.String(150), nullable=False)
-
+    @app.route('/upload', methods=['POST'])
+    @jwt_required()
+    def upload_audio():
+        user = get_jwt_identity()
+        wait_time = random.randint(5, 15)
+        time.sleep(wait_time)
+        current_user = User.query.filter_by(username=current_user['username']).first()
+        encryoted_motto = fernet.encrypt(('This is encoded transcrption').encode())
+        user.motto = encryoted_motto
+        db.session.commit()
+        return { 'motto': user_motto}
+    
+    class User(db.Model):
+        id = db.Column(db.Integer, primary_key=True)
+        username = db.Column(db.String(150), unique=True, nullable=False)
+        password = db.Column(db.String(150), nullable=False)
+        motto = db.Column(db.String(150), nullable=False)
 
 if __name__ == '__main__':
     app = create_app()
